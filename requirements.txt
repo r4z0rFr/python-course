@@ -1,0 +1,5 @@
+requests
+bs4
+nltk
+spacy-lefff
+lxml
