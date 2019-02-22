@@ -1,0 +1,99 @@
+__   __  ___   _______  ___       ______    ______   ___      ___   _______  
+|"  |/  \|  "| /"     "||"  |     /" _  "\  /    " \ |"  \    /"  | /"     "| 
+|'  /    \:  |(: ______)||  |    (: ( \___)// ____  \ \   \  //   |(: ______) 
+|: /'        | \/    |  |:  |     \/ \    /  /    ) :)/\\  \/.    | \/    |   
+ \//  /\'    | // ___)_  \  |___  //  \ _(: (____/ //|: \.        | // ___)_  
+ /   /  \\   |(:      "|( \_|:  \(:   _) \\        / |.  \    /:  |(:      "| 
+|___/    \___| \_______) \_______)\_______)\"_____/  |___|\__/|___| \_______) 
+                                                                              
+
+So far so good: you made it. A ce stade de la semaine, vous devriez avec un scrapper assez basique
+capable d'extraire les noms de personnes, de lieux (thanks spacy;-) d'un site en suivant l'ensemble 
+des liens internes à mesure qu'il les trouve. Si tel n'est pas le cas, partez de la version de
+ seo_it.py que j'ai pushé hier. Pour ce qui concerne les problèmes d'environnements, un grand merci 
+ à ceux d'entre vous qui ont participé à l'élaboration du container. 
+
+ ===========> LES INDISPENSABLES
+
+Pour être vraiment utile, il faudrait que notre scrapper dispose des propriétés suivantes: 
+SUPPORT DE L'ANGLAIS
+---> être capable d'identifier la langue au changement de la page pour utiliser une pipeline spacy
+distincte de celle que nous avons mis en place pour le français (voir. nlp_french = spacy.load('fr'))
+
+UN CLI MINIMAL
+---> il serait pas mal que nous puissions directement indiquer l'entrypoint du site à scapper en 
+lançant seo_it. Idéalement, nous aimerions pouvoir faire cela en bash: 
+        python3 seo_it.py https://sub.siteascrapper.com
+
+---> Il vous faudra pour cela éditer le main() en utilisant sys.argv
+---> https://www.science-emergence.com/Articles/Comment-passer-des-arguments-en-ligne-de-commande-avec-python/
+
+GESTION DES EXCEPTIONS
+
+RECURSION MAXIMALE--> Que faire si un petit malin se prend la fantaisie de python3 seo_it.py https://stackoverflow.com?
+    Il pourrait être pas mal de limiter l'exploration du site à 300 pages. Point important, il faudrait que le programme 
+    quitte sans heurt en indiquant les résultats tout en précisant que ces derniers ne sont pas exhaustifs
+
+ROBOT.TXT --> il convient de s'assurer que notre programme ne scrap pas des pages interdites (vrai risque de ban sur un 
+serveur web correctement administré). Pour cela, l'étape initiale (dès l'instantiation du site), consisterait à 
+    ---> chercher le fichier robot.txt situé théoriquement à la racine du site et tenir compte, s'il existe, de ses 
+    directives disallow (source http://robots-txt.com/)
+    ---> tenir compte des erreurs 401 (clasiquement causées par le .htaccess d'Apache)-> cesser toute exploration de cette 
+    portion du site
+    ---> tenir compte de la balise meta (e.g. <meta name="robots" content="index, follow">) qu'il peut parfois y avoir
+
+ENCODAGE ---> spacy est il capable de bosser si on lui fournit un contenu encodé en latin1? Beautiful soup est-il suffisamment
+    malin pour détecter ce dernier? S'en assurer et corriger d'éventuels écueils
+
+
+ ===========> LES OPTIONNELLES (pour les vrais, les durs! si le temps le permet)
+
+PERMANENCE DES DONNÉES  ---> stocker les résultats dans un sqlite afin de ne pas avoir à parser de nouveau un site deux fois
+    (à moins que le parsing remonte à plus de 2 mois)
+
+CLUSTERING DE CONTENU ---> (attention, notions un peu abstraites et nécessite de cleaner pas mal le texte) 
+      http://brandonrose.org/clustering
+
+
+ME TRANSMETTRE VOTRE TRAVAIL: 
+    -> (idéalement) commit + push sur GitHub sur une branche à votre nom
+    -> (si vous êtes aussi mauvais que moi en git) mon mail zarebskidavid@gmail.com (objet: DFS Python)
+
+
+Live long and prosper \\//_
+                                       ___________________        ____....-----....____
+                                      (________________LL_)   ==============================
+                                          ______\   \_______.--'.  `---..._____...---'
+                                          `-------..__            ` ,/
+                                                      `-._ -  -  - |
+                                                          `-------'
+
+
+
+
+print(" =============================>{}<====================".format(self.site_url))
+    self.home_page.get_links()
+    pile = self.home_page.internal_links.copy()
+    parsed = self.home_page.internal_links.copy()
+
+    
+
+    while pile != []:
+      print("taille de la pile",len(pile),"taille de la liste",len(parsed))
+      a = self.factory_page(pile[0])
+      a.get_links()
+      
+      if a.code == 200:  
+        new_links = set(a.internal_links) - set(parsed)
+        pile.extend(new_links)
+        parsed.extend(new_links)  
+
+        
+      pile.pop(0)
+    
+    try: 
+      vectorizer = TfidfVectorizer(lowercase = True, max_df = 0.9, min_df=0.2)
+      X = vectorizer.fit_transform(entities)
+      print(vectorizer.get_feature_names())
+    except ValueError:
+      print("Pas de liens internes sur la page d'accueil")

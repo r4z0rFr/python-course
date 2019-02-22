@@ -2,21 +2,33 @@ import requests
 import re
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
+from spacy_lefff import LefffLemmatizer, POSTagger
+from langdetect import detect
 import copy
-
+import sys
+from collections import Counter
 from nltk.tokenize import word_tokenize
-
+from nltk import pos_tag
+from sklearn.feature_extraction.text import TfidfVectorizer
+import spacy
 import pprint
+
+
+####### CONSTANTE ##############
+nlp_lang = spacy.load('en')
+nlp_lang.add_pipe(LefffLemmatizer(), name='lefff', before="ner")
 
 
 class Site(object):
     """dans site: mot clef, urls interne, url externe, nom de domaine, document_matrix"""
 
-    def __init__(self, url):
+    def __init__(self, url,limit = 0):
         self.root_url = urlparse(url).netloc
         self.entry_point = url
         self.site_url = urlparse(url).scheme + "://" + self.root_url
         self.home_page = self.factory_page(url)
+        self.limit = int(limit)
+        self.counter = 0
 
     # une factory method
     def factory_page(self, page_url):
@@ -28,7 +40,12 @@ class Site(object):
         pile = self.home_page.internal_links.copy()
         parsed = self.home_page.internal_links.copy()
 
-        while pile != []:
+        entities = []
+
+        while pile != [] and self.counter < self.limit:
+
+            self.counter = self.counter + 1
+
             print("taille de la pile", len(pile), "taille de la liste", len(parsed))
             a = self.factory_page(pile[0])
 
@@ -39,7 +56,19 @@ class Site(object):
                 pile.extend(new_links)
                 parsed.extend(new_links)
 
+                a.get_text()
+                a.get_entity()
+                entities.append(" ".join(a.entities))
+
+
             pile.pop(0)
+
+            try: 
+              vectorizer = TfidfVectorizer(lowercase = True, max_df = 0.9, min_df=0.2)
+              X = vectorizer.fit_transform(entities)
+              print(vectorizer.get_feature_names())
+            except ValueError:
+              print("Pas de liens internes sur la page d'accueil")
 
 
 class Page(object):
@@ -57,6 +86,8 @@ class Page(object):
         try:
             r = requests.get(self.url)
             s = BeautifulSoup(r.text, 'lxml')
+            nlp_lang = spacy.load(detect(s.text))
+
             print("code de la requête", r.status_code, " page: ", s.title)
             return s, r.status_code
         except:
@@ -65,11 +96,14 @@ class Page(object):
     def get_links(self):
         '''get all links of the page (if mode internal=> only internal links)'''
         if self.code == 200:
+
             links = [l.get("href") for l in self.soup.find_all("a") if l.get("href") != "#"]  # --->
 
             intab_links = [self.site_url + l for l in links if l.startswith("/")]
             intre_links = [self.url + "/" + l for l in links if re.match(r"^(?!(http|/|#\w|mailto))", l)]
+            
             print(intre_links)
+            
             intex_links = [l for l in links if re.match(r"https?://{%s}.*" % self.root_url, l)]
             ext_links = [l for l in links if re.match(r"^https?(?!.*{%s}).*$" % self.root_url, l)]
 
@@ -80,25 +114,41 @@ class Page(object):
             self.internal_links = []
 
     def get_text(self):
-        """récupère le contenu de la page"""
-        div_tags = ["h{}".format(i) for i in range(1, 6)]
+        """récupère le contenu de la page"""    
+        div_tags = ["h{}".format(i) for i in range(1,6)]
 
-        p_text = [x.text.replace("\n", " ") for x in self.soup.find_all("p") if re.match(r"\w+", x.text)]
+        p_text = [x.text.replace("\n"," ") for x in self.soup.find_all("p") if re.match(r"\w+",x.text)]
         div_text = {}
 
-        for d in div_tags:
-            div_text[d] = [x.text.replace("\n", "") for x in self.soup.find_all(d)]
-        div_text["strong"] = [x.text.replace("\n", "") for x in self.soup.find_all("strong")]
-        div_text["p"] = p_text
+        for d in div_tags: 
+            div_text[d] = [x.text.replace("\n"," ") for x in self.soup.find_all(d)]
+        div_text["strong"] = [x.text.replace("\n"," ") for x in self.soup.find_all("strong")]
+        
+        self.text = " ".join(p_text)
+        self.remarkable = div_text
 
-        text = " ".join(div_text["p"])
+    def get_lemmes(self): 
+        tokens = word_tokenize(self.text)
+        tokens = [w.lower() for w in tokens]
+        #p_tag = pos_tag(tokens)
 
-    ##############ICI########
+        #print(lemmes)  
+
+    def get_entity(self): 
+        doc = nlp_lang(self.text)
+
+        self.entities = []
+        for entity in doc.ents:
+            self.entities.append(entity.text)
+
+
 
 
 # apply this to all n top resuslts
 def main():
-    site = Site("https://www.it-akademy.fr/")
+    res = requests.get(sys.argv[1])
+
+    site = Site(sys.argv[1], sys.argv[2])
     site.scrap_site()
 
 

@@ -9,9 +9,10 @@ COPY app.py /opt/app.py
 
 RUN pip3 install -r /tmp/requirements.txt
 
-RUN pip3 install requests bs4 nltk spacy-lefff lxml
+RUN pip3 install requests bs4 nltk spacy-lefff lxml sklearn langdetect
 
 RUN python3 -m spacy download fr
+RUN python3 -m spacy download en
 
 WORKDIR /opt
 
